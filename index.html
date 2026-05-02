@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Self-Iteration</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --text: #e8e8e8;
+    --dim: #666;
+    --accent: #c8b6a0;
+    --glass: rgba(255,255,255,0.03);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'Noto Serif SC', sans-serif;
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+
+  /* ============ Mirror Canvas ============ */
+  #mirror-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ============ Hero ============ */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    z-index: 1;
+  }
+
+  .hero-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    transform: translateY(40px);
+    animation: fadeUp 1.2s ease forwards 0.3s;
+  }
+
+  .hero-title .char {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: charFade 0.6s ease forwards;
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--dim);
+    font-weight: 300;
+    max-width: 500px;
+    opacity: 0;
+    animation: fadeUp 1s ease forwards 1s;
+    letter-spacing: 0.05em;
+  }
+
+  .hero-line {
+    width: 1px;
+    height: 0;
+    background: var(--accent);
+    margin: 3rem auto 0;
+    animation: lineGrow 1.5s ease forwards 1.5s;
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.8s ease forwards 2.5s;
+    color: var(--dim);
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+  }
+
+  .scroll-hint span {
+    display: block;
+    width: 1px;
+    height: 30px;
+    background: var(--dim);
+    margin: 0.5rem auto 0;
+    animation: scrollPulse 2s ease infinite;
+  }
+
+  /* ============ Sections ============ */
+  section {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 8rem 2rem;
+  }
+
+  .section-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2rem;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .section-label.visible {
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  h2 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 2rem;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  h2.visible {
+    animation: fadeUp 0.8s ease forwards 0.15s;
+  }
+
+  p {
+    color: #999;
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  p.visible {
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  /* ============ Insight Cards ============ */
+  .insight-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1px;
+    background: rgba(255,255,255,0.05);
+    margin: 3rem 0;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .insight-grid.visible {
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  .insight-card {
+    background: var(--bg);
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+  }
+
+  .insight-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, rgba(200,182,160,0.05), transparent);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  .insight-card:hover::before {
+    opacity: 1;
+  }
+
+  .insight-card .num {
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    margin-bottom: 1rem;
+  }
+
+  .insight-card h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+    color: var(--text);
+  }
+
+  .insight-card p {
+    font-size: 0.95rem;
+    color: #777;
+    margin: 0;
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ============ Quote ============ */
+  .quote-block {
+    position: relative;
+    padding: 4rem 0;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .quote-block.visible {
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  .quote-block::before {
+    content: '"';
+    font-family: 'Noto Serif SC', serif;
+    font-size: 8rem;
+    color: rgba(200,182,160,0.1);
+    position: absolute;
+    top: -1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    line-height: 1;
+  }
+
+  .quote-block blockquote {
+    font-family: 'Noto Serif SC', serif;
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--text);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .quote-block cite {
+    display: block;
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--dim);
+    font-style: normal;
+    letter-spacing: 0.1em;
+  }
+
+  /* ============ Timeline ============ */
+  .timeline {
+    position: relative;
+    padding-left: 2rem;
+    margin: 3rem 0;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .timeline.visible {
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: rgba(200,182,160,0.2);
+  }
+
+  .timeline-item {
+    position: relative;
+    padding: 0 0 3rem 2rem;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -2rem;
+    top: 0.5rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateX(-2px);
+  }
+
+  .timeline-item h4 {
+    font-size: 0.85rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+
+  .timeline-item p {
+    font-size: 0.95rem;
+    color: #888;
+    opacity: 1;
+    transform: none;
+    margin: 0;
+  }
+
+  /* ============ Formats ============ */
+  .format-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1px;
+    background: rgba(255,255,255,0.05);
+    margin: 3rem 0;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .format-list.visible {
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  .format-item {
+    background: var(--bg);
+    padding: 1.5rem;
+    text-align: center;
+    transition: background 0.3s ease;
+  }
+
+  .format-item:hover {
+    background: rgba(200,182,160,0.03);
+  }
+
+  .format-item .name {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+
+  .format-item .desc {
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+
+  /* ============ CTA ============ */
+  .cta {
+    text-align: center;
+    padding: 6rem 2rem 10rem;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .cta.visible {
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  .cta-link {
+    display: inline-block;
+    padding: 1rem 3rem;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-link::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: var(--accent);
+    transition: left 0.4s ease;
+    z-index: -1;
+  }
+
+  .cta-link:hover {
+    color: var(--bg);
+  }
+
+  .cta-link:hover::before {
+    left: 0;
+  }
+
+  .cta-note {
+    margin-top: 2rem;
+    font-size: 0.8rem;
+    color: var(--dim);
+  }
+
+  /* ============ Footer ============ */
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 3rem 2rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.75rem;
+    color: #444;
+    letter-spacing: 0.1em;
+  }
+
+  /* ============ Divider ============ */
+  .divider {
+    width: 40px;
+    height: 1px;
+    background: rgba(200,182,160,0.3);
+    margin: 0 auto;
+    opacity: 0;
+  }
+
+  .divider.visible {
+    animation: fadeUp 0.6s ease forwards;
+  }
+
+  /* ============ Animations ============ */
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes charFade {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes lineGrow {
+    to { height: 80px; }
+  }
+
+  @keyframes scrollPulse {
+    0%, 100% { opacity: 0.3; transform: scaleY(1); }
+    50% { opacity: 0.8; transform: scaleY(1.3); }
+  }
+
+  /* ============ Responsive ============ */
+  @media (max-width: 600px) {
+    section { padding: 5rem 1.5rem; }
+    .insight-card { padding: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="mirror-canvas"></canvas>
+
+<!-- Hero -->
+<div class="hero">
+  <h1 class="hero-title" id="hero-title"></h1>
+  <p class="hero-subtitle">从聊天记录中看见真实的自己，然后变好。</p>
+  <div class="hero-line"></div>
+  <div class="scroll-hint">SCROLL<span></span></div>
+</div>
+
+<!-- Section 1: Problem -->
+<section>
+  <div class="section-label">The Problem</div>
+  <h2>你以为的自己，不是真实的自己</h2>
+  <p>心理学有一个反复验证的结论：人们对自己行为模式的自我报告，和他们的实际行为之间，存在系统性偏差。你觉得自己"挺会聊天的"，但数据显示你问过真正的问题只有 14 个。你觉得自己"比较乐观"，但你的情感表达里只有"还行"一种天气。</p>
+  <p>我们不是在说谎。我们只是看不见自己。</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 2: Insight -->
+<section>
+  <div class="section-label">The Insight</div>
+  <h2>聊天记录，比任何心理测评都诚实</h2>
+  <p>你的每一条消息，都是你当时真实反应的化石——没有经过事后美化，没有经过"我应该怎么说"的过滤。你在对方表达情绪的时候下意识转移话题，你在分享快乐的时候习惯性往回兜，你在面对脆弱的时候本能地用段子兜底——这些瞬间你从来不记得，但聊天记录都记得。</p>
+  <p>聊天记录是行为层面的真实数据，绕过了人在自我报告时的美化和盲区。</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 3: Contrast -->
+<section>
+  <div class="section-label">Philosophy</div>
+  <h2>AI 不应该替代人，而应该帮助人看见自己</h2>
+  <p>GitHub 上有一类项目特别火：把同事蒸馏成 AI Skill。输入一个人的工作记录，AI 学会他的思维方式，然后替他干活。</p>
+  <p>我理解这件事的吸引力。但我一直在想另一个方向：如果 AI 不是用来替代一个人，而是用来帮助一个人更好地理解自己呢？</p>
+
+  <div class="insight-grid">
+    <div class="insight-card">
+      <div class="num">01</div>
+      <h3>行为数据 > 自我报告</h3>
+      <p>人会美化自己，数据不会。这不是说数据比你更了解你——而是数据提供了一个你无法从内部获得的视角。</p>
+    </div>
+    <div class="insight-card">
+      <div class="num">02</div>
+      <h3>模式没有好坏</h3>
+      <p>你的"段子防御"在保护你——它让你在社交中永远安全。但同样的模式也在阻止你——它让你的话永远到不了底。Self-Iteration 不预设"你有问题需要修"，只识别模式。</p>
+    </div>
+    <div class="insight-card">
+      <div class="num">03</div>
+      <h3>理解比改变重要</h3>
+      <p>你不知道自己为什么这样做，就不可能真正改变它。看见 → 理解 → 改变。当你真正理解了自己，你不需要"努力改变"，你会自然地做出不同的选择。</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 4: How -->
+<section>
+  <div class="section-label">How It Works</div>
+  <h2>看见 → 理解 → 改变</h2>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <h4>上传聊天记录</h4>
+      <p>支持 WeFlow、微信、Telegram、WhatsApp、Discord 等格式。所有分析在本地完成，不发送到外部。</p>
+    </div>
+    <div class="timeline-item">
+      <h4>AI 分析你的沟通模式</h4>
+      <p>识别你在对话中的核心模式——什么在运作，什么在限制你，什么情境下你的优势会失效。</p>
+    </div>
+    <div class="timeline-item">
+      <h4>穿透到心智模型</h4>
+      <p>不停在"你做了什么"，而是理解"你用什么框架在看世界"。模式背后的心智模型，才是真正需要被看见的东西。</p>
+    </div>
+    <div class="timeline-item">
+      <h4>给出行动方向</h4>
+      <p>不是"你应该更开放"，而是"下次对方说 X，试试做 Y"。具体的、可执行的、小到不可能失败的第一步。</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 5: Era -->
+<section>
+  <div class="section-label">Why Now</div>
+  <h2>AI 在迭代，人也应该能迭代</h2>
+  <p>AI 的迭代速度已经快到让人焦虑。每几个月就有新的模型、新的能力、新的可能性。但人类呢？我们还是用同样的方式说话、用同样的模式思考、用同样的防御机制保护自己。</p>
+  <p>如果 AI 可以每几个月进化一次，为什么人不能？</p>
+  <p>你有数据，你有工具，你可以定期导出新的聊天记录，看看自己的模式有没有变化，看看上次的洞察有没有应验。</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 6: Formats -->
+<section>
+  <div class="section-label">Supported Formats</div>
+  <h2>支持的格式</h2>
+
+  <div class="format-list">
+    <div class="format-item">
+      <div class="name">WeFlow</div>
+      <div class="desc">微信记录导出</div>
+    </div>
+    <div class="format-item">
+      <div class="name">微信 TXT</div>
+      <div class="desc">文本格式导出</div>
+    </div>
+    <div class="format-item">
+      <div class="name">微信 CSV</div>
+      <div class="desc">表格格式导出</div>
+    </div>
+    <div class="format-item">
+      <div class="name">Telegram</div>
+      <div class="desc">JSON 导出</div>
+    </div>
+    <div class="format-item">
+      <div class="name">WhatsApp</div>
+      <div class="desc">聊天导出 TXT</div>
+    </div>
+    <div class="format-item">
+      <div class="name">Discord</div>
+      <div class="desc">ChatExporter</div>
+    </div>
+  </div>
+</section>
+
+<!-- Quote -->
+<section>
+  <div class="quote-block">
+    <blockquote>认识你自己。</blockquote>
+    <cite>—— 德尔斐神谕</cite>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta">
+  <a href="https://github.com/huanyu16/self-iteration" class="cta-link">GITHUB →</a>
+  <p class="cta-note">MIT License · 免费开源</p>
+</div>
+
+<footer>
+  SELF-ITERATION · 2026
+</footer>
+
+<script>
+// ========== Hero Title Animation ==========
+const title = document.getElementById('hero-title');
+const text = 'SELF-ITERATION';
+text.split('').forEach((char, i) => {
+  const span = document.createElement('span');
+  span.className = 'char';
+  span.textContent = char === ' ' ? '\u00A0' : char;
+  span.style.animationDelay = `${0.4 + i * 0.05}s`;
+  title.appendChild(span);
+});
+
+// ========== Scroll Reveal ==========
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.2, rootMargin: '0px 0px -50px 0px' });
+
+document.querySelectorAll('.section-label, h2, p, .insight-grid, .quote-block, .timeline, .format-list, .divider, .cta').forEach(el => {
+  observer.observe(el);
+});
+
+// ========== Mirror Canvas ==========
+const canvas = document.getElementById('mirror-canvas');
+const ctx = canvas.getContext('2d');
+let w, h, particles = [];
+
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Particle {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    this.x = Math.random() * w;
+    this.y = Math.random() * h;
+    this.vx = (Math.random() - 0.5) * 0.15;
+    this.vy = (Math.random() - 0.5) * 0.15;
+    this.size = Math.random() * 1.5 + 0.5;
+    this.opacity = Math.random() * 0.15 + 0.02;
+    this.life = Math.random() * 600 + 200;
+    this.age = 0;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.age++;
+    if (this.age > this.life || this.x < -10 || this.x > w + 10 || this.y < -10 || this.y > h + 10) {
+      this.reset();
+    }
+  }
+  draw() {
+    const fadeIn = Math.min(this.age / 60, 1);
+    const fadeOut = Math.max((this.life - this.age) / 60, 0);
+    const alpha = this.opacity * Math.min(fadeIn, fadeOut);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200, 182, 160, ${alpha})`;
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 60; i++) {
+  particles.push(new Particle());
+}
+
+function animate() {
+  ctx.clearRect(0, 0, w, h);
+  particles.forEach(p => {
+    p.update();
+    p.draw();
+  });
+
+  // Draw connections
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 120) {
+        const alpha = (1 - dist / 120) * 0.03;
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.strokeStyle = `rgba(200, 182, 160, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ========== Mouse interaction ==========
+let mouseX = -1000, mouseY = -1000;
+document.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+// Update particle behavior near mouse
+const originalUpdate = Particle.prototype.update;
+Particle.prototype.update = function() {
+  originalUpdate.call(this);
+  const dx = mouseX - this.x;
+  const dy = mouseY - this.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 150) {
+    const force = (150 - dist) / 150 * 0.02;
+    this.vx -= dx / dist * force;
+    this.vy -= dy / dist * force;
+  }
+  // Dampen
+  this.vx *= 0.999;
+  this.vy *= 0.999;
+};
+</script>
+
+</body>
+</html>
